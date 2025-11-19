@@ -1,0 +1,23 @@
+{
+  "name": "maquina-de-turing-interativa",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Uma aplicação visualmente encantadora e educativa que simula o funcionamento de uma Máquina de Turing.",
+  "scripts": {
+    "dev": "echo \"Este projeto é executado diretamente no ambiente de desenvolvimento da plataforma e não requer um script de 'dev' local.\"",
+    "build": "echo \"Este projeto não possui uma etapa de build configurada.\"",
+    "lint": "echo \"Nenhum linter configurado.\""
+  },
+  "dependencies": {
+    "framer-motion": "^10.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.2"
+  }
+}
