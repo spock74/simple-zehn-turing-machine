@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Rule, TuringMachineState, HistoryEntry } from '../types';
-import { Direction } from '../types';
+import type { Rule, TuringMachineState, HistoryEntry, ValidatedRule } from '../types';
 
 interface UseTuringMachineProps {
     rules: Rule[];
@@ -26,7 +25,7 @@ const createInitialTape = (input: string, blankSymbol: string) => {
 
 const performSingleStep = (
     state: Omit<TuringMachineState, 'history'>,
-    rules: Rule[],
+    rules: ValidatedRule[],
     blankSymbol: string,
     haltState: string
 ): Omit<TuringMachineState, 'history'> => {
@@ -41,7 +40,7 @@ const performSingleStep = (
     }
 
     const rule = rules.find(
-        (r) => r.currentState === state.currentState && r.readSymbol === currentSymbol
+        (r) => r.currentState === state.currentState && r.read === currentSymbol
     );
 
     if (!rule) {
@@ -54,10 +53,10 @@ const performSingleStep = (
     }
 
     const newTape = [...state.tape];
-    newTape[state.headPosition] = rule.writeSymbol;
+    newTape[state.headPosition] = rule.write;
 
     let newHeadPosition = state.headPosition;
-    if (rule.moveDirection === Direction.Right) {
+    if (rule.move === 'R') {
         newHeadPosition++;
     } else {
         newHeadPosition--;
@@ -66,7 +65,6 @@ const performSingleStep = (
     let finalTape = newTape;
     let finalHeadPosition = newHeadPosition;
 
-    // Proactively extend tape if head is near the edge
     if (finalHeadPosition < TAPE_SAFE_ZONE) {
         const padding = Array(TAPE_PADDING).fill(blankSymbol);
         finalTape = [...padding, ...finalTape];
@@ -86,7 +84,6 @@ const performSingleStep = (
         error: null,
     };
 };
-
 
 export const useTuringMachine = ({
     rules,
@@ -109,7 +106,7 @@ export const useTuringMachine = ({
     });
     const [isRunning, setIsRunning] = useState(false);
     const intervalRef = useRef<number | null>(null);
-    const [validationState, setValidationState] = useState<{ validatedRules: Rule[]; hasErrors: boolean }>({ validatedRules: [], hasErrors: false });
+    const [validationState, setValidationState] = useState<{ validatedRules: ValidatedRule[]; hasErrors: boolean }>({ validatedRules: [], hasErrors: false });
     const audioCtxRef = useRef<AudioContext | null>(null);
 
     const ensureAudioContext = useCallback(() => {
@@ -143,11 +140,10 @@ export const useTuringMachine = ({
         oscillator.stop(audioCtxRef.current.currentTime + 0.1);
     }, [isSoundOn]);
 
-
     useEffect(() => {
         const ruleMap = new Map<string, Rule[]>();
         rules.forEach(rule => {
-            const key = `${rule.currentState}:${rule.readSymbol}`;
+            const key = `${rule.currentState}:${rule.read}`;
             if (!ruleMap.has(key)) {
                 ruleMap.set(key, []);
             }
@@ -155,19 +151,18 @@ export const useTuringMachine = ({
         });
 
         let hasAnyErrors = false;
-        const newValidatedRules = rules.map(rule => {
-            const key = `${rule.currentState}:${rule.readSymbol}`;
+        const newValidatedRules: ValidatedRule[] = rules.map(rule => {
+            const key = `${rule.currentState}:${rule.read}`;
             const conflictingRules = ruleMap.get(key)!;
             if (conflictingRules.length > 1) {
                 hasAnyErrors = true;
-                return { ...rule, isValid: false, error: `Conflito: Múltiplas regras para o estado '${rule.currentState}' lendo '${rule.readSymbol}'.` };
+                return { ...rule, hasError: true };
             }
-            return { ...rule, isValid: true, error: undefined };
+            return { ...rule, hasError: false };
         });
 
         setValidationState({ validatedRules: newValidatedRules, hasErrors: hasAnyErrors });
     }, [rules]);
-
 
     const advanceMachine = useCallback(() => {
         if (machineState.isHalted) {
@@ -185,8 +180,9 @@ export const useTuringMachine = ({
             const historyEntry: HistoryEntry = {
                 step: prevState.stepCount,
                 state: prevState.currentState,
-                readSymbol: prevState.tape[prevState.headPosition] || blankSymbol,
-                usedRuleId: nextState.lastUsedRuleId,
+                read: prevState.tape[prevState.headPosition] || blankSymbol,
+                position: prevState.headPosition,
+                ruleId: nextState.lastUsedRuleId,
             };
 
             return {
@@ -195,7 +191,6 @@ export const useTuringMachine = ({
             };
         });
     }, [machineState.isHalted, validationState.validatedRules, blankSymbol, haltState, playSound]);
-
 
     const step = useCallback(() => {
         if (isRunning || machineState.isHalted || validationState.hasErrors) return;
@@ -250,7 +245,6 @@ export const useTuringMachine = ({
         };
     }, [isRunning, machineState.isHalted, speed, advanceMachine]);
     
-    // Cleanup on unmount
     useEffect(() => {
         return () => {
             if (intervalRef.current) {

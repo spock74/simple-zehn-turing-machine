@@ -1,48 +1,68 @@
-import type { Rule } from './types';
-import { Direction } from './types';
+import { Rule } from './types';
 
-export const BLANK_SYMBOL = ' ';
-export const INITIAL_STATE = 'q0';
-export const HALT_STATE = 'halt';
+export const BLANK_SYMBOL = '_';
+export const INITIAL_STATE = '0';
+export const HALT_STATE = 'H';
 
-export const EXAMPLE_PROGRAMS: { name: string; description: string; input: string; rules: Rule[] }[] = [
+interface ExampleProgram {
+    name: string;
+    description: string;
+    input: string;
+    rules: Rule[];
+}
+
+export const EXAMPLE_PROGRAMS: ExampleProgram[] = [
     {
-        name: "Incrementador Binário",
-        description: "Adiciona 1 a um número binário.",
-        input: "1011",
+        name: "Inversor Binário",
+        description: "Inverte todos os bits (0 vira 1, 1 vira 0) na fita.",
+        input: "01101",
         rules: [
-            { id: '1', currentState: 'q0', readSymbol: '1', newState: 'q0', writeSymbol: '1', moveDirection: Direction.Right },
-            { id: '2', currentState: 'q0', readSymbol: '0', newState: 'q0', writeSymbol: '0', moveDirection: Direction.Right },
-            { id: '3', currentState: 'q0', readSymbol: BLANK_SYMBOL, newState: 'q1', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Left },
-            { id: '4', currentState: 'q1', readSymbol: '1', newState: 'q1', writeSymbol: '0', moveDirection: Direction.Left },
-            { id: '5', currentState: 'q1', readSymbol: '0', newState: 'q2', writeSymbol: '1', moveDirection: Direction.Left },
-            { id: '6', currentState: 'q1', readSymbol: BLANK_SYMBOL, newState: 'q2', writeSymbol: '1', moveDirection: Direction.Left },
-            { id: '7', currentState: 'q2', readSymbol: '0', newState: 'q2', writeSymbol: '0', moveDirection: Direction.Left },
-            { id: '8', currentState: 'q2', readSymbol: '1', newState: 'q2', writeSymbol: '1', moveDirection: Direction.Left },
-            { id: '9', currentState: 'q2', readSymbol: BLANK_SYMBOL, newState: HALT_STATE, writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Right },
+            { id: '1', currentState: '0', read: '0', newState: '0', write: '1', move: 'R' },
+            { id: '2', currentState: '0', read: '1', newState: '0', write: '0', move: 'R' },
+            { id: '3', currentState: '0', read: BLANK_SYMBOL, newState: HALT_STATE, write: BLANK_SYMBOL, move: 'L' },
         ],
     },
     {
-        name: "Palíndromo (a,b)",
-        description: "Verifica se uma string é um palíndromo (ex: 'abaaba').",
-        input: "ababa",
+        name: "Soma Unária",
+        description: "Soma dois números em notação unária (ex: '111+11' -> '11111')",
+        input: "11+111",
         rules: [
-            { id: 'p1', currentState: 'q0', readSymbol: 'a', newState: 'q1', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Right },
-            { id: 'p2', currentState: 'q0', readSymbol: 'b', newState: 'q2', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Right },
-            { id: 'p3', currentState: 'q0', readSymbol: BLANK_SYMBOL, newState: HALT_STATE, writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Right },
-            { id: 'p4', currentState: 'q1', readSymbol: 'a', newState: 'q1', writeSymbol: 'a', moveDirection: Direction.Right },
-            { id: 'p5', currentState: 'q1', readSymbol: 'b', newState: 'q1', writeSymbol: 'b', moveDirection: Direction.Right },
-            { id: 'p6', currentState: 'q1', readSymbol: BLANK_SYMBOL, newState: 'q3', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Left },
-            { id: 'p7', currentState: 'q2', readSymbol: 'a', newState: 'q2', writeSymbol: 'a', moveDirection: Direction.Right },
-            { id: 'p8', currentState: 'q2', readSymbol: 'b', newState: 'q2', writeSymbol: 'b', moveDirection: Direction.Right },
-            { id: 'p9', currentState: 'q2', readSymbol: BLANK_SYMBOL, newState: 'q4', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Left },
-            { id: 'p10', currentState: 'q3', readSymbol: 'a', newState: 'q5', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Left },
-            { id: 'p11', currentState: 'q3', readSymbol: 'b', newState: HALT_STATE, writeSymbol: 'b', moveDirection: Direction.Left },
-            { id: 'p12', currentState: 'q4', readSymbol: 'b', newState: 'q5', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Left },
-            { id: 'p13', currentState: 'q4', readSymbol: 'a', newState: HALT_STATE, writeSymbol: 'a', moveDirection: Direction.Left },
-            { id: 'p14', currentState: 'q5', readSymbol: 'a', newState: 'q5', writeSymbol: 'a', moveDirection: Direction.Left },
-            { id: 'p15', currentState: 'q5', readSymbol: 'b', newState: 'q5', writeSymbol: 'b', moveDirection: Direction.Left },
-            { id: 'p16', currentState: 'q5', readSymbol: BLANK_SYMBOL, newState: 'q0', writeSymbol: BLANK_SYMBOL, moveDirection: Direction.Right },
-        ],
+            { id: '1', currentState: '0', read: '1', newState: '0', write: '1', move: 'R' },
+            { id: '2', currentState: '0', read: '+', newState: '1', write: '1', move: 'R' },
+            { id: '3', currentState: '1', read: '1', newState: '1', write: '1', move: 'R' },
+            { id: '4', currentState: '1', read: BLANK_SYMBOL, newState: '2', write: BLANK_SYMBOL, move: 'L' },
+            { id: '5', currentState: '2', read: '1', newState: '2', write: BLANK_SYMBOL, move: 'L' },
+            { id: '6', currentState: '2', read: '1', newState: HALT_STATE, write: '1', move: 'R' },
+        ]
+    },
+    {
+        name: "Verificador de Palíndromo",
+        description: "Verifica se a entrada é um palíndromo de 0s e 1s.",
+        input: "101101",
+        rules: [
+            { id: '1', currentState: '0', read: '0', newState: '1', write: BLANK_SYMBOL, move: 'R' },
+            { id: '2', currentState: '0', read: '1', newState: '2', write: BLANK_SYMBOL, move: 'R' },
+            { id: '3', currentState: '0', read: BLANK_SYMBOL, newState: HALT_STATE, write: BLANK_SYMBOL, move: 'R' }, // Palíndromo (ou entrada vazia)
+            
+            { id: '4', currentState: '1', read: '0', newState: '1', write: '0', move: 'R' }, // procura fim (início era 0)
+            { id: '5', currentState: '1', read: '1', newState: '1', write: '1', move: 'R' }, // procura fim
+            { id: '6', currentState: '1', read: BLANK_SYMBOL, newState: '3', write: BLANK_SYMBOL, move: 'L' }, // chegou ao fim, volta
+
+            { id: '7', currentState: '2', read: '0', newState: '2', write: '0', move: 'R' }, // procura fim (início era 1)
+            { id: '8', currentState: '2', read: '1', newState: '2', write: '1', move: 'R' }, // procura fim
+            { id: '9', currentState: '2', read: BLANK_SYMBOL, newState: '4', write: BLANK_SYMBOL, move: 'L' }, // chegou ao fim, volta
+            
+            { id: '10', currentState: '3', read: '0', newState: '5', write: BLANK_SYMBOL, move: 'L' }, // encontrou 0 no final, ok
+            { id: '11', currentState: '3', read: '1', newState: 'H', write: '1', move: 'L' }, // não é palíndromo
+            { id: '12', currentState: '3', read: BLANK_SYMBOL, newState: HALT_STATE, write: BLANK_SYMBOL, move: 'R' }, // Palíndromo (ímpar)
+            
+            { id: '13', currentState: '4', read: '1', newState: '5', write: BLANK_SYMBOL, move: 'L' }, // encontrou 1 no final, ok
+            { id: '14', currentState: '4', read: '0', newState: 'H', write: '0', move: 'L' }, // não é palíndromo
+            { id: '15', currentState: '4', read: BLANK_SYMBOL, newState: HALT_STATE, write: BLANK_SYMBOL, move: 'R' }, // Palíndromo (ímpar)
+
+            { id: '16', currentState: '5', read: '0', newState: '5', write: '0', move: 'L' }, // volta para o início
+            { id: '17', currentState: '5', read: '1', newState: '5', write: '1', move: 'L' }, // volta para o início
+            { id: '18', currentState: '5', read: BLANK_SYMBOL, newState: '0', write: BLANK_SYMBOL, move: 'R' }, // chegou ao início, recomeça ciclo
+        ]
     },
 ];

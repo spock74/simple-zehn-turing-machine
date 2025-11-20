@@ -1,7 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import type { Rule } from '../types';
-import { HALT_STATE, INITIAL_STATE, BLANK_SYMBOL } from '../constants';
 
 interface StateDiagramProps {
     rules: Rule[];
@@ -10,6 +9,7 @@ interface StateDiagramProps {
 
 interface Node {
     id: string;
+    label: string;
     x: number;
     y: number;
 }
@@ -19,155 +19,104 @@ interface Edge {
     source: string;
     target: string;
     label: string;
-    isSelfLoop: boolean;
 }
 
-const formatSymbol = (s: string) => (s === BLANK_SYMBOL ? '␣' : s);
-
-export const StateDiagram: React.FC<StateDiagramProps> = ({ rules, currentState }) => {
-    const { nodes, edges } = useMemo(() => {
-        const stateSet = new Set<string>([INITIAL_STATE, HALT_STATE]);
-        rules.forEach(rule => {
-            stateSet.add(rule.currentState);
-            stateSet.add(rule.newState);
-        });
-
-        const sortedStates = Array.from(stateSet).sort((a, b) => {
-             if (a === INITIAL_STATE) return -1;
-             if (b === INITIAL_STATE) return 1;
-             if (a === HALT_STATE) return 1;
-             if (b === HALT_STATE) return -1;
-             return a.localeCompare(b, undefined, { numeric: true });
-        });
-        
-        const nodeMap = new Map<string, Node>();
-        const radius = 100;
-        const width = 280;
-        const height = 280;
-        const centerX = width / 2;
-        const centerY = height / 2;
-
-        sortedStates.forEach((stateId, i) => {
-            const angle = (i / sortedStates.length) * 2 * Math.PI - Math.PI / 2;
-            nodeMap.set(stateId, {
-                id: stateId,
-                x: centerX + radius * Math.cos(angle),
-                y: centerY + radius * Math.sin(angle),
-            });
-        });
-
-        const edgeMap = new Map<string, Edge[]>();
-        rules.forEach(rule => {
-            const key = `${rule.currentState}->${rule.newState}`;
-            if (!edgeMap.has(key)) {
-                edgeMap.set(key, []);
-            }
-            edgeMap.get(key)!.push({
-                id: rule.id,
-                source: rule.currentState,
-                target: rule.newState,
-                label: `${formatSymbol(rule.readSymbol)}→${formatSymbol(rule.writeSymbol)}, ${rule.moveDirection}`,
-                isSelfLoop: rule.currentState === rule.newState,
-            });
-        });
-
-        return { nodes: Array.from(nodeMap.values()), edges: Array.from(edgeMap.values()).flat() };
-    }, [rules]);
-
-    const nodePositions = useMemo(() => {
-        const map = new Map<string, { x: number; y: number }>();
-        nodes.forEach(node => map.set(node.id, { x: node.x, y: node.y }));
-        return map;
-    }, [nodes]);
-    
-    if (nodes.length === 0) {
-        return <div className="text-slate-500">Adicione regras para ver o diagrama.</div>;
-    }
+const DagreGraph: React.FC<{
+    nodes: Node[];
+    edges: Edge[];
+    currentState: string;
+}> = memo(({ nodes, edges, currentState }) => {
 
     return (
-        <svg viewBox="0 0 280 280" className="w-full h-full">
+        <svg width="100%" height="100%" viewBox="0 0 300 250" preserveAspectRatio="xMidYMid meet">
             <defs>
-                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <marker
+                    id="arrowhead"
+                    viewBox="0 0 10 10"
+                    refX="8" 
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse">
                     <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
                 </marker>
             </defs>
-            <g>
-                {/* Edges */}
-                {edges.map((edge, index) => {
-                    const sourcePos = nodePositions.get(edge.source);
-                    const targetPos = nodePositions.get(edge.target);
-                    if (!sourcePos || !targetPos) return null;
 
-                    if (edge.isSelfLoop) {
-                        const { x, y } = sourcePos;
-                        const loopRadius = 20;
-                        const pathData = `M ${x - 12} ${y - 12} A ${loopRadius} ${loopRadius} 0 1 1 ${x + 12} ${y - 12}`;
-                        return (
-                            <g key={edge.id}>
-                                <path d={pathData} stroke="#475569" strokeWidth="1.5" fill="none" markerEnd="url(#arrow)" />
-                                <text x={x} y={y - 35} textAnchor="middle" fill="#94a3b8" fontSize="8">{edge.label}</text>
-                            </g>
-                        );
-                    }
+            {/* Edges */}
+            {edges.map(edge => {
+                 const sourceNode = nodes.find(n => n.id === edge.source)!;
+                 const targetNode = nodes.find(n => n.id === edge.target)!;
+                 if (!sourceNode || !targetNode) return null;
 
-                    const dx = targetPos.x - sourcePos.x;
-                    const dy = targetPos.y - sourcePos.y;
-                    const angle = Math.atan2(dy, dx);
-                    const padding = 22; // Node radius + padding
+                 const dx = targetNode.x - sourceNode.x;
+                 const dy = targetNode.y - sourceNode.y;
+                 const dist = Math.sqrt(dx * dx + dy * dy);
+                 const nx = dx / dist;
+                 const ny = dy / dist;
+                 const endX = targetNode.x - nx * 22;
+                 const endY = targetNode.y - ny * 22;
+ 
+                 const isSelfLoop = edge.source === edge.target;
+                 const d = isSelfLoop ? `M ${sourceNode.x - 20} ${sourceNode.y - 10} A 20 20, 0, 1, 1, ${sourceNode.x} ${sourceNode.y - 22}` : `M ${sourceNode.x} ${sourceNode.y} L ${endX} ${endY}`;
 
-                    const startX = sourcePos.x + padding * Math.cos(angle);
-                    const startY = sourcePos.y + padding * Math.sin(angle);
-                    const endX = targetPos.x - padding * Math.cos(angle);
-                    const endY = targetPos.y - padding * Math.sin(angle);
-                    
-                    const midX = (startX + endX) / 2;
-                    const midY = (startY + endY) / 2;
+                return (
+                    <g key={edge.id}>
+                        <path d={d} stroke="#64748b" strokeWidth="1.5" fill="none" markerEnd={isSelfLoop ? undefined : "url(#arrowhead)"} />
+                        <text x={isSelfLoop ? sourceNode.x - 40 : (sourceNode.x + targetNode.x) / 2} y={isSelfLoop ? sourceNode.y - 40 : (sourceNode.y + targetNode.y) / 2} fill="#94a3b8" fontSize="10" textAnchor="middle">
+                            {edge.label}
+                        </text>
+                    </g>
+                );
+            })}
 
-                    // Bend the line
-                    const bendFactor = 0.2;
-                    const controlX = midX - dy * bendFactor;
-                    const controlY = midY + dx * bendFactor;
-
-                    return (
-                        <g key={edge.id}>
-                            <path d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`} stroke="#475569" strokeWidth="1.5" fill="none" markerEnd="url(#arrow)" />
-                             <text x={controlX} y={controlY - 5} textAnchor="middle" fill="#94a3b8" fontSize="8">{edge.label}</text>
-                        </g>
-                    );
-                })}
-                {/* Nodes */}
-                {nodes.map(node => {
-                    const isActive = node.id === currentState;
-                    const isHalt = node.id === HALT_STATE;
-                    return (
-                        <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
-                            <motion.circle
-                                r={isHalt ? 18 : 20}
-                                stroke={isActive ? '#22d3ee' : '#475569'}
-                                strokeWidth={isActive ? 2.5 : 1.5}
-                                fill="#1e293b"
-                                animate={{ scale: isActive ? 1.1 : 1 }}
-                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                            />
-                            {isHalt && <circle r="14" stroke="#475569" strokeWidth="1.5" fill="none" />}
-                            <text textAnchor="middle" dy="4" fill={isActive ? '#67e8f9' : '#cbd5e1'} fontSize="10" fontWeight="bold">
-                                {node.id}
-                            </text>
-                            {isActive && (
-                                <motion.circle
-                                    r={20}
-                                    fill="none"
-                                    stroke="#22d3ee"
-                                    strokeWidth="3"
-                                    initial={{ opacity: 0.5, scale: 1.1 }}
-                                    animate={{ opacity: [0.5, 0, 0.5], scale: [1.1, 1.3, 1.1] }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                />
-                            )}
-                        </g>
-                    );
-                })}
-            </g>
+            {/* Nodes */}
+            {nodes.map(node => {
+                const isActive = node.id === currentState;
+                return (
+                    <g key={node.id}>
+                       <motion.circle
+                           cx={node.x}
+                           cy={node.y}
+                           r={20}
+                           fill={isActive ? "#0e7490" : "#1e293b"} 
+                           stroke={isActive ? "#22d3ee" : "#475569"} 
+                           strokeWidth={2}
+                           animate={{ scale: isActive ? 1.1 : 1 }}
+                           transition={{ duration: 0.3, type: "spring" }}
+                       />
+                        <text x={node.x} y={node.y + 4} textAnchor="middle" fill="#e2e8f0" fontSize="12" fontWeight="bold">
+                            {node.label}
+                        </text>
+                    </g>
+                );
+            })}
         </svg>
     );
+});
+
+export const StateDiagram: React.FC<StateDiagramProps> = ({ rules, currentState }) => {
+    
+    const { nodes, edges } = useMemo(() => {
+        const stateNames = Array.from(new Set(rules.flatMap(r => [r.currentState, r.newState])));
+        const nodes: Node[] = stateNames.map((name, i) => ({
+            id: name,
+            label: name,
+            x: 150 + 100 * Math.cos(2 * Math.PI * i / stateNames.length),
+            y: 125 + 100 * Math.sin(2 * Math.PI * i / stateNames.length),
+        }));
+
+        const edges: Edge[] = rules.map((rule, i) => ({
+            id: `e${i}`,
+            source: rule.currentState,
+            target: rule.newState,
+            label: `${rule.read} -> ${rule.write}, ${rule.move}`,
+        }));
+        return { nodes, edges };
+    }, [rules]);
+
+    if (nodes.length === 0) {
+        return <div className="text-slate-500 text-sm">Sem regras para exibir o diagrama.</div>;
+    }
+
+    return <DagreGraph nodes={nodes} edges={edges} currentState={currentState} />;
 };

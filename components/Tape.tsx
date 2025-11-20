@@ -1,103 +1,62 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useRef, useEffect } from 'react';
+import { motion } from "framer-motion";
+import { BLANK_SYMBOL } from '../constants';
 
 interface TapeProps {
     tape: string[];
     headPosition: number;
-    isFinal?: boolean;
+    isHalted: boolean;
 }
 
-const CELL_WIDTH = 52; // Corresponds to w-12 + gap-1 -> (12 * 4px) + 4px
-
-const Tooltip: React.FC<{ text: string }> = ({ text }) => (
-    <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 5 }}
-        className="absolute bottom-full mb-2 w-max bg-slate-900 text-white text-xs rounded py-1 px-2 shadow-lg z-50 border border-slate-600"
-    >
-        {text}
-    </motion.div>
-);
-
-const TapeCell: React.FC<{ symbol: string; isHead: boolean }> = ({ symbol, isHead }) => {
-    const [showTooltip, setShowTooltip] = useState(false);
-    const displaySymbol = symbol.length > 1 ? `${symbol.charAt(0)}…` : symbol;
-    const needsTooltip = symbol.length > 1;
-
+const TapeCell: React.FC<{ children: React.ReactNode; isHead: boolean; isHalted: boolean }> = ({ children, isHead, isHalted }) => {
+    const symbol = children === ' ' ? BLANK_SYMBOL : children;
+    
+    const headColor = isHalted ? "border-emerald-400 bg-emerald-500/20" : "border-cyan-400 bg-cyan-500/20";
+    const cellColor = isHead ? headColor : "border-slate-700 bg-slate-800/60";
+    
     return (
-        <motion.div
-            layout
-            className={`relative flex-shrink-0 w-12 h-16 flex items-center justify-center text-2xl border-2 rounded-md transition-colors duration-300
-                ${isHead 
-                    ? 'bg-cyan-400/20 border-cyan-400 text-cyan-300' 
-                    : 'bg-slate-700/50 border-slate-600 text-slate-400'
-                }`}
-            animate={isHead ? {
-                scale: [1.1, 1.14, 1.1],
-                boxShadow: [
-                    "0 0 12px rgba(34, 211, 238, 0.5)",
-                    "0 0 20px rgba(34, 211, 238, 0.7)",
-                    "0 0 12px rgba(34, 211, 238, 0.5)",
-                ],
-                transition: {
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                }
-            } : {
-                scale: 1,
-                boxShadow: "none"
-            }}
-            onMouseEnter={() => needsTooltip && setShowTooltip(true)}
-            onMouseLeave={() => needsTooltip && setShowTooltip(false)}
-        >
-            <AnimatePresence>
-                {showTooltip && <Tooltip text={symbol} />}
-            </AnimatePresence>
-
-            <AnimatePresence mode="popLayout">
-                <motion.span
-                    key={symbol} // Key change triggers animation
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="font-orbitron"
-                >
-                    {displaySymbol}
-                </motion.span>
-            </AnimatePresence>
-        </motion.div>
-    );
-};
-
-
-export const Tape: React.FC<TapeProps> = ({ tape, headPosition, isFinal = false }) => {
-    // Com `justify-center` no pai, a fita já está centralizada.
-    // O transform é relativo a essa posição central.
-    // O deslocamento é o negativo da distância do centro da fita para o centro da célula ativa.
-    const tapeWidth = tape.length * CELL_WIDTH;
-    const activeTapeOffset = (tapeWidth / 2) - (headPosition * CELL_WIDTH) - (CELL_WIDTH / 2);
-
-    return (
-        <div className="relative w-full h-24 flex items-center justify-center overflow-hidden bg-slate-900/50 rounded-lg p-2">
-            {!isFinal && (
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-cyan-400 z-20 animate-pulse-fast"></div>
-            )}
-            <motion.div
-                className="flex items-center gap-1"
-                style={{
-                    // Na exibição final, x=0 mantém a fita centralizada.
-                    // Durante a execução, calculamos o deslocamento para centralizar a célula ativa.
-                    x: isFinal ? 0 : activeTapeOffset
-                }}
-                transition={{ type: 'spring', stiffness: 200, damping: 30 }}
-            >
-                {tape.map((symbol, index) => (
-                    <TapeCell key={index} symbol={symbol} isHead={!isFinal && index === headPosition} />
-                ))}
-            </motion.div>
+        <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 border-2 ${cellColor} rounded-md flex items-center justify-center transition-colors duration-300`}>
+            <span className="font-mono text-lg sm:text-xl md:text-2xl text-slate-200">{symbol}</span>
         </div>
     );
 };
+
+export const Tape: React.FC<TapeProps> = React.memo(({ tape, headPosition, isHalted }) => {
+    const tapeContainerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (tapeContainerRef.current) {
+            const container = tapeContainerRef.current;
+            const headElement = container.querySelector('[data-is-head="true"]');
+            if (headElement) {
+                const containerWidth = container.offsetWidth;
+                const headLeft = (headElement as HTMLElement).offsetLeft;
+                const headWidth = (headElement as HTMLElement).offsetWidth;
+
+                container.scrollTo({
+                    left: headLeft - (containerWidth / 2) + (headWidth / 2),
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }, [headPosition, tape]);
+
+    return (
+        <div className="relative w-full">
+             <div className={`absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 w-0 h-0 
+                border-l-[6px] border-l-transparent
+                border-t-[8px] ${isHalted ? 'border-t-emerald-400' : 'border-t-cyan-400'}
+                border-r-[6px] border-r-transparent transition-colors duration-300`}>
+            </div>
+            <div ref={tapeContainerRef} className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollSnapType: 'x mandatory' }}>
+                {tape.map((symbol, index) => (
+                    <div key={index} data-is-head={index === headPosition} style={{ scrollSnapAlign: 'center' }}>
+                        <TapeCell isHead={index === headPosition} isHalted={isHalted}>
+                            {symbol}
+                        </TapeCell>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+});
